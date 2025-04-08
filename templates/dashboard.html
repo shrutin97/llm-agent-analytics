@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - LLM Agent Analytics{% endblock %}
+
+{% block page_title %}Overview Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Key Metrics -->
+    <section class="metrics-overview">
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-message"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Total Queries</h3>
+                <p class="metric-value">{{ "{:,}".format(summary.total_queries) }}</p>
+                <p class="metric-trend positive">
+                    <i class="fas fa-arrow-up"></i> 12% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Success Rate</h3>
+                <p class="metric-value">{{ "%.1f"|format(summary.avg_success_rate * 100) }}%</p>
+                <p class="metric-trend positive">
+                    <i class="fas fa-arrow-up"></i> 3.5% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Avg Response Time</h3>
+                <p class="metric-value">{{ "%.2f"|format(summary.avg_response_time) }}s</p>
+                <p class="metric-trend negative">
+                    <i class="fas fa-arrow-down"></i> 8% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Total Cost</h3>
+                <p class="metric-value">${{ "%.2f"|format(summary.total_cost) }}</p>
+                <p class="metric-trend negative">
+                    <i class="fas fa-arrow-up"></i> 15% vs prev period
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Charts Row 1 -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Daily Queries</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="queriesChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Success vs Failure Rate</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="successRateChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Charts Row 2 -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Error Distribution</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="errorDistChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Daily Costs</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="costsChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Agent Performance Comparison -->
+    <section class="agent-comparison">
+        <div class="section-header">
+            <h3>Agent Performance</h3>
+            <button class="view-all-btn">View All</button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Agent</th>
+                        <th>Model</th>
+                        <th>Queries</th>
+                        <th>Success Rate</th>
+                        <th>Avg Response</th>
+                        <th>Cost</th>
+                        <th>Rating</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in summary.agent_comparison %}
+                    <tr>
+                        <td>
+                            <a href="/agent/{{ agent.id }}" class="agent-name">{{ agent.name }}</a>
+                        </td>
+                        <td>{{ agent.model }}</td>
+                        <td>{{ "{:,}".format(agent.total_queries) }}</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: {{ agent.avg_success_rate * 100 }}%"></div>
+                                <span>{{ "%.1f"|format(agent.avg_success_rate * 100) }}%</span>
+                            </div>
+                        </td>
+                        <td>{{ "%.2f"|format(agent.avg_response_time) }}s</td>
+                        <td>${{ "%.2f"|format(agent.total_cost) }}</td>
+                        <td>
+                            <div class="rating">
+                                {% set full_stars = (agent.avg_rating | int) %}
+                                {% set half_star = (agent.avg_rating - full_stars) >= 0.5 %}
+                                
+                                {% for i in range(full_stars) %}
+                                <i class="fas fa-star"></i>
+                                {% endfor %}
+                                
+                                {% if half_star %}
+                                <i class="fas fa-star-half-alt"></i>
+                                {% set remainder = 4 - full_stars %}
+                                {% else %}
+                                {% set remainder = 5 - full_stars %}
+                                {% endif %}
+                                
+                                {% for i in range(remainder) %}
+                                <i class="far fa-star"></i>
+                                {% endfor %}
+                                
+                                <span>{{ "%.1f"|format(agent.avg_rating) }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    
+    <!-- Model Usage -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Model Usage Distribution</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="modelUsageChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Model Cost Distribution</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="modelCostChart"></canvas>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart.js defaults for dark mode
+        Chart.defaults.color = '#a3a3a3';
+        Chart.defaults.borderColor = '#2d2d2d';
+        
+        // Prepare data for charts
+        const dailyQueriesLabels = Object.keys({{ summary.daily_queries|tojson }});
+        const dailyQueriesData = Object.values({{ summary.daily_queries|tojson }});
+        
+        const dailyCostsLabels = Object.keys({{ summary.daily_costs|tojson }});
+        const dailyCostsData = Object.values({{ summary.daily_costs|tojson }});
+        
+        // Error distribution data
+        const errorLabels = Object.keys({{ summary.error_types|tojson }});
+        const errorData = Object.values({{ summary.error_types|tojson }});
+        
+        // Model usage data
+        const modelData = {{ summary.model_usage|tojson }};
+        const modelLabels = Object.keys(modelData);
+        const modelQueries = modelLabels.map(model => modelData[model].queries);
+        const modelCosts = modelLabels.map(model => modelData[model].cost);
+        
+        // Daily Queries Chart
+        const queriesChart = new Chart(
+            document.getElementById('queriesChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dailyQueriesLabels,
+                    datasets: [{
+                        label: 'Queries',
+                        data: dailyQueriesData,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Success Rate Chart
+        const successRateChart = new Chart(
+            document.getElementById('successRateChart'),
+            {
+                type: 'doughnut',
+                data: {
+                    labels: ['Successful', 'Failed'],
+                    datasets: [{
+                        data: [
+                            {{ summary.total_successful_queries }}, 
+                            {{ summary.total_failed_queries }}
+                        ],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Error Distribution Chart
+        const errorDistChart = new Chart(
+            document.getElementById('errorDistChart'),
+            {
+                type: 'bar',
+                data: {
+                    labels: errorLabels.map(label => label.replace('_', ' ')),
+                    datasets: [{
+                        label: 'Count',
+                        data: errorData,
+                        backgroundColor: [
+                            '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Daily Costs Chart
+        const costsChart = new Chart(
+            document.getElementById('costsChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dailyCostsLabels,
+                    datasets: [{
+                        label: 'Cost ($)',
+                        data: dailyCostsData,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Model Usage Chart
+        const modelUsageChart = new Chart(
+            document.getElementById('modelUsageChart'),
+            {
+                type: 'pie',
+                data: {
+                    labels: modelLabels,
+                    datasets: [{
+                        data: modelQueries,
+                        backgroundColor: [
+                            '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#f43f5e', '#f97316'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Model Cost Chart
+        const modelCostChart = new Chart(
+            document.getElementById('modelCostChart'),
+            {
+                type: 'pie',
+                data: {
+                    labels: modelLabels,
+                    datasets: [{
+                        data: modelCosts,
+                        backgroundColor: [
+                            '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#f43f5e', '#f97316'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            }
+        );
+    });
+</script>
+{% endblock %}

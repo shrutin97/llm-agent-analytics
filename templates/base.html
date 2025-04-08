@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LLM Agent Analytics{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>LLM Analytics</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li>
+                        <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-dropdown">
+                        <a href="#" class="{{ 'active' if '/agent/' in request.url.path else '' }}">
+                            <i class="fas fa-robot"></i>
+                            <span>Agents</span>
+                            <i class="fas fa-chevron-down dropdown-icon"></i>
+                        </a>
+                        <ul class="sidebar-submenu">
+                            {% for agent in agents %}
+                            <li>
+                                <a href="/agent/{{ agent.id }}">
+                                    <span class="status-indicator {{ agent.status }}"></span>
+                                    <span>{{ agent.name }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="/team" class="{{ 'active' if request.url.path == '/team' else '' }}">
+                            <i class="fas fa-users"></i>
+                            <span>Team</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/compare" class="{{ 'active' if request.url.path == '/compare' else '' }}">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Compare</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-info">
+                    <img src="/static/img/user.png" alt="User Avatar" class="avatar">
+                    <div class="user-details">
+                        <span class="user-name">AI Team Lead</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button id="sidebar-toggle" class="menu-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="page-title">
+                        <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="time-filter">
+                        <select id="time-range">
+                            <option value="7">Last 7 days</option>
+                            <option value="14">Last 14 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Content area -->
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="/static/js/main.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

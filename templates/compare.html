@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+
+{% block title %}Compare Agents - LLM Analytics{% endblock %}
+
+{% block page_title %}Compare Agents{% endblock %}
+
+{% block content %}
+<div class="compare-container">
+    <!-- Agent Selection -->
+    <section class="compare-selection">
+        <div class="card">
+            <div class="card-header">
+                <h3>Select Agents to Compare</h3>
+            </div>
+            <div class="card-body">
+                <div class="agent-selection">
+                    <div class="selection-group">
+                        <label>Agents</label>
+                        <div class="checkbox-group">
+                            {% for agent in agents %}
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="agent-{{ agent.id }}" value="{{ agent.id }}" class="agent-checkbox" {% if loop.index <= 3 %}checked{% endif %}>
+                                <label for="agent-{{ agent.id }}">
+                                    <span class="status-indicator {{ agent.status }}"></span>
+                                    {{ agent.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="selection-group">
+                        <label>Metrics</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-queries" name="metric" value="total_queries" checked>
+                                <label for="metric-queries">Total Queries</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-success-rate" name="metric" value="success_rate">
+                                <label for="metric-success-rate">Success Rate</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-response-time" name="metric" value="avg_response_time">
+                                <label for="metric-response-time">Response Time</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-cost" name="metric" value="total_cost">
+                                <label for="metric-cost">Cost</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-rating" name="metric" value="avg_rating">
+                                <label for="metric-rating">User Rating</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="radio" id="metric-hallucination" name="metric" value="hallucination_rate">
+                                <label for="metric-hallucination">Hallucination Rate</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="selection-actions">
+                    <button id="update-comparison" class="btn btn-primary">Update Comparison</button>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Comparison Charts -->
+    <section class="comparison-charts">
+        <div class="chart-container full-width">
+            <div class="chart-header">
+                <h3 id="comparison-title">Daily Queries Comparison</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container full-width">
+            <div class="chart-header">
+                <h3>Average Performance</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Detailed Metrics Comparison -->
+    <section class="metrics-comparison">
+        <div class="card">
+            <div class="card-header">
+                <h3>Detailed Comparison</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="data-table comparison-table" id="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <!-- Agent headers will be added dynamically -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Comparison data will be added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart.js defaults for dark mode
+        Chart.defaults.color = '#a3a3a3';
+        Chart.defaults.borderColor = '#2d2d2d';
+        
+        let comparisonChart = null;
+        let radarChart = null;
+        
+        // Default colors for agents (can add more)
+        const agentColors = [
+            '#6366f1', // Indigo
+            '#10b981', // Emerald
+            '#f59e0b', // Amber
+            '#ef4444', // Red
+            '#06b6d4', // Cyan
+            '#8b5cf6'  // Violet
+        ];
+        
+        // Get initial selected agents
+        function getSelectedAgents() {
+            const checkboxes = document.querySelectorAll('.agent-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        // Get selected metric
+        function getSelectedMetric() {
+            return document.querySelector('input[name="metric"]:checked').value;
+        }
+        
+        // Update comparison chart
+        function updateComparison() {
+            const agentIds = getSelectedAgents();
+            const metric = getSelectedMetric();
+            
+            if (agentIds.length === 0) {
+                alert('Please select at least one agent to compare');
+                return;
+            }
+            
+            // Update chart title based on selected metric
+            const metricTitles = {
+                'total_queries': 'Daily Queries',
+                'success_rate': 'Success Rate',
+                'avg_response_time': 'Response Time',
+                'total_cost': 'Cost',
+                'avg_rating': 'User Rating',
+                'hallucination_rate': 'Hallucination Rate'
+            };
+            
+            document.getElementById('comparison-title').textContent = 
+                `${metricTitles[metric]} Comparison`;
+            
+            // Fetch comparison data
+            fetch(`/api/compare?agent_ids=${agentIds.join(',')}&metric=${metric}`)
+                .then(response => response.json())
+                .then(data => {
+                    createComparisonChart(data, metric);
+                    createComparisonTable(agentIds);
+                    createRadarChart(agentIds);
+                })
+                .catch(error => {
+                    console.error('Error fetching comparison data:', error);
+                });
+        }
+        
+        // Create comparison chart
+        function createComparisonChart(data, metric) {
+            const canvas = document.getElementById('comparisonChart');
+            
+            if (comparisonChart) {
+                comparisonChart.destroy();
+            }
+            
+            // Prepare datasets
+            const datasets = [];
+            const allLabels = new Set();
+            
+            // Collect all dates for x-axis
+            Object.values(data).forEach(agentData => {
+                agentData.forEach(day => {
+                    allLabels.add(day.date);
+                });
+            });
+            
+            // Sort labels chronologically
+            const sortedLabels = Array.from(allLabels).sort();
+            
+            // Build datasets
+            Object.keys(data).forEach((agentId, index) => {
+                const agentName = document.querySelector(`label[for="agent-${agentId}"]`).textContent.trim();
+                const color = agentColors[index % agentColors.length];
+                
+                // Create a map of date to value for easy lookup
+                const dateValueMap = {};
+                data[agentId].forEach(day => {
+                    dateValueMap[day.date] = day.value;
+                });
+                
+                // Create dataset with values for all labels (using null for missing dates)
+                const values = sortedLabels.map(date => dateValueMap[date] || null);
+                
+                datasets.push({
+                    label: agentName,
+                    data: values,
+                    borderColor: color,
+                    backgroundColor: `${color}33`, // Color with alpha
+                    tension: 0.4,
+                    fill: false
+                });
+            });
+            
+            // Create chart
+            comparisonChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: sortedLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create radar chart for comparing metrics
+        function createRadarChart(agentIds) {
+            const canvas = document.getElementById('radarChart');
+            
+            if (radarChart) {
+                radarChart.destroy();
+            }
+            
+            // Fetch agent data for each selected agent
+            Promise.all(agentIds.map(id => 
+                fetch(`/api/agent/${id}/metrics`).then(res => res.json())
+            ))
+                .then(agentsData => {
+                    // Process the data
+                    const datasets = [];
+                    
+                    agentsData.forEach((agentMetrics, index) => {
+                        const agentId = agentIds[index];
+                        const agentName = document.querySelector(`label[for="agent-${agentId}"]`).textContent.trim();
+                        const color = agentColors[index % agentColors.length];
+                        
+                        // Calculate average metrics
+                        const successRate = agentMetrics.reduce((sum, day) => sum + day.success_rate, 0) / agentMetrics.length;
+                        const responseTime = agentMetrics.reduce((sum, day) => sum + day.avg_response_time, 0) / agentMetrics.length;
+                        const avgRating = agentMetrics.reduce((sum, day) => sum + day.avg_rating, 0) / agentMetrics.length;
+                        const queryVolume = agentMetrics.reduce((sum, day) => sum + day.total_queries, 0);
+                        const hallucination = agentMetrics.reduce((sum, day) => sum + day.hallucination_rate, 0) / agentMetrics.length;
+                        
+                        // Normalize values for radar chart (0-100 scale)
+                        const normalizedMetrics = [
+                            successRate * 100, // Success rate is already 0-1
+                            Math.min(100, 100 - (responseTime / 5 * 100)), // Lower response time is better
+                            avgRating * 20, // Convert 0-5 to 0-100
+                            Math.min(100, queryVolume / 200), // Cap at reasonable max
+                            100 - (hallucination * 100) // Lower hallucination is better
+                        ];
+                        
+                        datasets.push({
+                            label: agentName,
+                            data: normalizedMetrics,
+                            backgroundColor: `${color}33`,
+                            borderColor: color,
+                            pointBackgroundColor: color,
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: color
+                        });
+                    });
+                    
+                    // Create chart
+                    radarChart = new Chart(canvas, {
+                        type: 'radar',
+                        data: {
+                            labels: [
+                                'Success Rate', 
+                                'Response Speed', 
+                                'User Rating', 
+                                'Query Volume', 
+                                'Accuracy'
+                            ],
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                r: {
+                                    min: 0,
+                                    max: 100,
+                                    ticks: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+        }
+        
+        // Create comparison table
+        function createComparisonTable(agentIds) {
+            // Fetch agent data for each selected agent
+            Promise.all(agentIds.map(id => 
+                fetch(`/api/agent/${id}/metrics`).then(res => res.json())
+            ))
+                .then(agentsData => {
+                    const table = document.getElementById('comparison-table');
+                    const thead = table.querySelector('thead tr');
+                    const tbody = table.querySelector('tbody');
+                    
+                    // Clear existing data
+                    while (thead.children.length > 1) {
+                        thead.removeChild(thead.lastChild);
+                    }
+                    tbody.innerHTML = '';
+                    
+                    // Add agent headers
+                    agentIds.forEach((agentId, index) => {
+                        const agentName = document.querySelector(`label[for="agent-${agentId}"]`).textContent.trim();
+                        const th = document.createElement('th');
+                        th.textContent = agentName;
+                        thead.appendChild(th);
+                    });
+                    
+                    // Define metrics to compare
+                    const metricsToCompare = [
+                        { key: 'total_queries', label: 'Total Queries', formatter: val => val.toLocaleString() },
+                        { key: 'success_rate', label: 'Success Rate', formatter: val => `${(val * 100).toFixed(1)}%` },
+                        { key: 'avg_response_time', label: 'Avg Response Time', formatter: val => `${val.toFixed(2)}s` },
+                        { key: 'total_cost', label: 'Total Cost', formatter: val => `$${val.toFixed(2)}` },
+                        { key: 'avg_rating', label: 'User Rating', formatter: val => val.toFixed(1) },
+                        { key: 'hallucination_rate', label: 'Hallucination Rate', formatter: val => `${(val * 100).toFixed(1)}%` },
+                        { key: 'avg_turns_per_session', label: 'Avg Turns per Session', formatter: val => val.toFixed(1) },
+                        { key: 'tokens_per_query', label: 'Tokens per Query', formatter: val => val.toLocaleString() }
+                    ];
+                    
+                    // Add rows for each metric
+                    metricsToCompare.forEach(metric => {
+                        const row = document.createElement('tr');
+                        
+                        // Add metric name
+                        const metricCell = document.createElement('td');
+                        metricCell.textContent = metric.label;
+                        row.appendChild(metricCell);
+                        
+                        // Add values for each agent
+                        agentsData.forEach(agentMetrics => {
+                            const cell = document.createElement('td');
+                            
+                            // Calculate aggregated value for this metric
+                            let value;
+                            
+                            if (metric.key === 'total_queries' || metric.key === 'total_cost') {
+                                // Sum for totals
+                                value = agentMetrics.reduce((sum, day) => sum + day[metric.key], 0);
+                            } else {
+                                // Average for rates and other metrics
+                                value = agentMetrics.reduce((sum, day) => sum + day[metric.key], 0) / agentMetrics.length;
+                            }
+                            
+                            cell.textContent = metric.formatter(value);
+                            row.appendChild(cell);
+                        });
+                        
+                        tbody.appendChild(row);
+                    });
+                });
+        }
+        
+        // Initialize
+        document.getElementById('update-comparison').addEventListener('click', updateComparison);
+        
+        // Initial chart load
+        updateComparison();
+    });
+</script>
+{% endblock %}

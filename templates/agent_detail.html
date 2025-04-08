@@ -1,0 +1,661 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ agent.name }} - Agent Analytics{% endblock %}
+
+{% block page_title %}{{ agent.name }} Analytics{% endblock %}
+
+{% block content %}
+<div class="agent-detail-container">
+    <!-- Agent Overview -->
+    <section class="agent-overview">
+        <div class="agent-header">
+            <div class="agent-icon">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="agent-info">
+                <h3>{{ agent.name }}</h3>
+                <p class="agent-model">{{ agent.model }}</p>
+                <p class="agent-description">{{ agent.description }}</p>
+                <div class="agent-meta">
+                    <span class="meta-item">
+                        <i class="fas fa-code-branch"></i> Version {{ agent.version }}
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-calendar"></i> Created {{ agent.created_at.split('T')[0] }}
+                    </span>
+                    <span class="meta-item status-{{ agent.status }}">
+                        <i class="fas fa-circle"></i> {{ agent.status|capitalize }}
+                    </span>
+                </div>
+            </div>
+            <div class="agent-actions">
+                <button class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-secondary">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Team Members -->
+        <div class="team-members">
+            <h4>Team Members</h4>
+            <div class="member-list">
+                {% for member in team_members %}
+                <div class="member-card">
+                    <img src="{{ member.avatar }}" alt="{{ member.name }}" class="member-avatar">
+                    <div class="member-info">
+                        <h5>{{ member.name }}</h5>
+                        <p>{{ member.role }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    
+    <!-- Key Metrics -->
+    <section class="metrics-overview">
+        {% set last_day = metrics[-1] %}
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-message"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Total Queries</h3>
+                <p class="metric-value">{{ "{:,}".format(metrics|sum(attribute='total_queries')) }}</p>
+                <p class="metric-trend positive">
+                    <i class="fas fa-arrow-up"></i> 8% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Success Rate</h3>
+                {% set avg_success = metrics|sum(attribute='success_rate') / metrics|length %}
+                <p class="metric-value">{{ "%.1f"|format(avg_success * 100) }}%</p>
+                <p class="metric-trend positive">
+                    <i class="fas fa-arrow-up"></i> 2.1% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Avg Response Time</h3>
+                {% set avg_response = metrics|sum(attribute='avg_response_time') / metrics|length %}
+                <p class="metric-value">{{ "%.2f"|format(avg_response) }}s</p>
+                <p class="metric-trend negative">
+                    <i class="fas fa-arrow-down"></i> 5% vs prev period
+                </p>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+            <div class="metric-details">
+                <h3>Total Cost</h3>
+                <p class="metric-value">${{ "%.2f"|format(metrics|sum(attribute='total_cost')) }}</p>
+                <p class="metric-trend negative">
+                    <i class="fas fa-arrow-up"></i> 12% vs prev period
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Charts Row 1 -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Daily Queries</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="dailyQueriesChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Success Rate Trend</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="successRateChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Charts Row 2 -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Response Time Trend</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="responseTimeChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Daily Cost</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="dailyCostChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- User Engagement & Feedback -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Conversations & Turns</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="turnsChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>User Ratings</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="ratingsChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Error Analysis -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Error Types Distribution</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="errorTypesChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Tool Usage</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="toolUsageChart"></canvas>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Hallucination Metrics -->
+    <section class="charts-row">
+        <div class="chart-container full-width">
+            <div class="chart-header">
+                <h3>Hallucination Rate Trend</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="hallucinationChart"></canvas>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart.js defaults for dark mode
+        Chart.defaults.color = '#a3a3a3';
+        Chart.defaults.borderColor = '#2d2d2d';
+        
+        // Prepare data from metrics
+        const metricsData = {{ metrics|tojson }};
+        const dates = metricsData.map(day => day.date);
+        const queries = metricsData.map(day => day.total_queries);
+        const successRates = metricsData.map(day => day.success_rate * 100);
+        const responseTimes = metricsData.map(day => day.avg_response_time);
+        const costs = metricsData.map(day => day.total_cost);
+        const turns = metricsData.map(day => day.avg_turns_per_session);
+        const hallucinations = metricsData.map(day => day.hallucination_rate * 100);
+        
+        // Calculate error types totals
+        const errorTypes = {};
+        metricsData.forEach(day => {
+            Object.entries(day.error_types).forEach(([type, count]) => {
+                errorTypes[type] = (errorTypes[type] || 0) + count;
+            });
+        });
+        
+        // Calculate tool usage totals
+        const toolUsage = {};
+        metricsData.forEach(day => {
+            Object.entries(day.tool_usage).forEach(([tool, count]) => {
+                toolUsage[tool] = (toolUsage[tool] || 0) + count;
+            });
+        });
+        
+        // Calculate ratings distribution
+        const ratingsData = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+        metricsData.forEach(day => {
+            Object.entries(day.ratings).forEach(([rating, count]) => {
+                ratingsData[rating] = (ratingsData[rating] || 0) + count;
+            });
+        });
+        
+        // Daily Queries Chart
+        const dailyQueriesChart = new Chart(
+            document.getElementById('dailyQueriesChart'),
+            {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Queries',
+                        data: queries,
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Success Rate Chart
+        const successRateChart = new Chart(
+            document.getElementById('successRateChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Success Rate (%)',
+                        data: successRates,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            min: Math.max(0, Math.min(...successRates) - 5),
+                            max: Math.min(100, Math.max(...successRates) + 5)
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Response Time Chart
+        const responseTimeChart = new Chart(
+            document.getElementById('responseTimeChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Response Time (s)',
+                        data: responseTimes,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Daily Cost Chart
+        const dailyCostChart = new Chart(
+            document.getElementById('dailyCostChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Cost ($)',
+                        data: costs,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Conversation Turns Chart
+        const turnsChart = new Chart(
+            document.getElementById('turnsChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Avg Turns',
+                        data: turns,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Ratings Chart
+        const ratingsChart = new Chart(
+            document.getElementById('ratingsChart'),
+            {
+                type: 'bar',
+                data: {
+                    labels: ['1★', '2★', '3★', '4★', '5★'],
+                    datasets: [{
+                        label: 'Count',
+                        data: [
+                            ratingsData['1'], 
+                            ratingsData['2'], 
+                            ratingsData['3'], 
+                            ratingsData['4'], 
+                            ratingsData['5']
+                        ],
+                        backgroundColor: [
+                            '#ef4444', 
+                            '#f97316', 
+                            '#f59e0b', 
+                            '#84cc16', 
+                            '#10b981'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Error Types Chart
+        const errorTypesChart = new Chart(
+            document.getElementById('errorTypesChart'),
+            {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(errorTypes).map(label => label.replace('_', ' ')),
+                    datasets: [{
+                        data: Object.values(errorTypes),
+                        backgroundColor: [
+                            '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            }
+        );
+        
+        // Tool Usage Chart
+        const toolUsageChart = new Chart(
+            document.getElementById('toolUsageChart'),
+            {
+                type: 'radar',
+                data: {
+                    labels: Object.keys(toolUsage).map(tool => 
+                        tool.split('_').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ')
+                    ),
+                    datasets: [{
+                        label: 'Usage Count',
+                        data: Object.values(toolUsage),
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        borderColor: '#6366f1',
+                        pointBackgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            }
+        );
+        
+        // Hallucination Rate Chart
+        const hallucinationChart = new Chart(
+            document.getElementById('hallucinationChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Hallucination Rate (%)',
+                        data: hallucinations,
+                        borderColor: '#ec4899',
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: Math.max(10, Math.max(...hallucinations) + 1)
+                        }
+                    }
+                }
+            }
+        );
+    });
+</script>
+{% endblock %}

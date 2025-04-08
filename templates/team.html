@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}Team Overview - LLM Analytics{% endblock %}
+
+{% block page_title %}Team Overview{% endblock %}
+
+{% block content %}
+<div class="team-overview-container">
+    <!-- Team Members Grid -->
+    <section class="team-members-grid">
+        {% for member in team_members %}
+        <div class="team-member-card">
+            <div class="member-header">
+                <img src="{{ member.avatar }}" alt="{{ member.name }}" class="member-avatar">
+                <div class="member-badges">
+                    <span class="badge badge-role">{{ member.role }}</span>
+                    <span class="badge badge-agents">{{ member.assigned_agents|length }} Agent{% if member.assigned_agents|length != 1 %}s{% endif %}</span>
+                </div>
+            </div>
+            <div class="member-info">
+                <h3>{{ member.name }}</h3>
+                <p class="member-email">{{ member.email }}</p>
+                
+                <div class="member-agents">
+                    <h4>Assigned Agents</h4>
+                    <ul class="agent-list">
+                        {% for agent in member.assigned_agents %}
+                        <li>
+                            <a href="/agent/{{ agent.id }}" class="agent-link">
+                                <span class="status-indicator {{ agent.status }}"></span>
+                                {{ agent.name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                
+                <div class="member-actions">
+                    <button class="btn btn-outline">
+                        <i class="fas fa-envelope"></i> Contact
+                    </button>
+                    <button class="btn btn-outline">
+                        <i class="fas fa-chart-line"></i> Performance
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    
+    <!-- Team Assignments -->
+    <section class="team-assignments">
+        <div class="card">
+            <div class="card-header">
+                <h3>Agent Assignments</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Agent</th>
+                                <th>Model</th>
+                                <th>Team Members</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agent in agents %}
+                            <tr>
+                                <td>
+                                    <a href="/agent/{{ agent.id }}" class="agent-name">{{ agent.name }}</a>
+                                </td>
+                                <td>{{ agent.model }}</td>
+                                <td>
+                                    <div class="member-bubbles">
+                                        {% for member_id in agent.team_members %}
+                                            {% for member in team_members %}
+                                                {% if member.id == member_id %}
+                                                <div class="member-bubble" title="{{ member.name }}">
+                                                    {{ member.name[:1] }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ agent.status }}">
+                                        {{ agent.status|capitalize }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="action-btn" title="Edit assignments">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="action-btn" title="View details">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Team Performance Overview -->
+    <section class="team-performance">
+        <div class="chart-container full-width">
+            <div class="chart-header">
+                <h3>Team Workload Distribution</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="chart-action-btn" title="Expand">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="workloadChart"></canvas>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart.js defaults for dark mode
+        Chart.defaults.color = '#a3a3a3';
+        Chart.defaults.borderColor = '#2d2d2d';
+        
+        // Process team members and agent assignments for chart
+        const teamMembers = {{ team_members|tojson }};
+        const agents = {{ agents|tojson }};
+        
+        // Count agent assignments per member
+        const assignmentCounts = {};
+        teamMembers.forEach(member => {
+            assignmentCounts[member.name] = member.assigned_agents.length;
+        });
+        
+        // Sort by assignment count
+        const sortedAssignments = Object.entries(assignmentCounts)
+            .sort((a, b) => b[1] - a[1]);
+        
+        const memberNames = sortedAssignments.map(entry => entry[0]);
+        const assignmentValues = sortedAssignments.map(entry => entry[1]);
+        
+        // Create colors array
+        const colors = memberNames.map((_, index) => {
+            // Gradient from indigo to violet
+            const hue = 260 + (index * 5) % 40; // Range from 260 to 300
+            return `hsl(${hue}, 70%, 60%)`;
+        });
+        
+        // Create workload chart
+        const workloadChart = new Chart(
+            document.getElementById('workloadChart'),
+            {
+                type: 'bar',
+                data: {
+                    labels: memberNames,
+                    datasets: [{
+                        label: 'Agent Assignments',
+                        data: assignmentValues,
+                        backgroundColor: colors,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: Math.max(...assignmentValues) + 1
+                        }
+                    }
+                }
+            }
+        );
+    });
+</script>
+{% endblock %}
